@@ -11,6 +11,8 @@ const Popup = () => {
       setLoading(true);
       try {
         const response = await fetch("http://localhost:8000/commits");
+  
+
         
         if (!response.ok) {
           throw new Error(`Server responded with status: ${response.status}`);
