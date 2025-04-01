@@ -20,6 +20,12 @@ type Commit struct {
 	WebURL    string `json:"web_url"`
 }
 
+type GitLabProject struct {
+	ID                int    `json:"id"`
+	Name              string `json:"name"`
+	PathWithNamespace string `json:"path_with_namespace"`
+}
+
 func getGitLabAPI() (string, error) {
 	api := os.Getenv("GITLAB_API")
 	if api == "" {
@@ -28,16 +34,58 @@ func getGitLabAPI() (string, error) {
 	return api, nil
 }
 
-func getProjectID() (int, error) {
-	idStr := os.Getenv("GITLAB_PROJECT_ID")
-	if idStr == "" {
-		return 0, errors.New("GITLAB_PROJECT_ID environment variable not set")
-	}
-	id, err := strconv.Atoi(idStr)
+func getProjectID(projectName string) (int, error) {
+	api, err := getGitLabAPI()
 	if err != nil {
-		return 0, fmt.Errorf("invalid GITLAB_PROJECT_ID: %v", err)
+		return 0, err
 	}
-	return id, nil
+	
+	token, err := getGitLabToken()
+	if err != nil {
+		return 0, err
+	}
+	
+	url := fmt.Sprintf("%s/projects?search=%s", api, projectName)
+	
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create request: %v", err)
+	}
+	req.Header.Set("PRIVATE-TOKEN", token)
+	
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("failed to search for project: %v", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("GitLab API error: %s", resp.Status)
+	}
+	
+	var projects []GitLabProject
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read response body: %v", err)
+	}
+	
+	if err := json.Unmarshal(body, &projects); err != nil {
+		return 0, fmt.Errorf("failed to parse projects: %v", err)
+	}
+	
+	if len(projects) == 0 {
+		return 0, fmt.Errorf("no projects found with name: %s", projectName)
+	}
+	
+	// Look for exact match or closest match
+	for _, project := range projects {
+		if project.Name == projectName || project.PathWithNamespace == projectName {
+			return project.ID, nil
+		}
+	}
+	
+	// If no exact match, return the first result
+	return projects[0].ID, nil
 }
 
 func getGitLabToken() (string, error) {
@@ -48,7 +96,7 @@ func getGitLabToken() (string, error) {
 	return token, nil
 }
 
-func getCommits() ([]Commit, error) {
+func getCommits(projectName string) ([]Commit, error) {
 	var allCommits []Commit
 	page := 1
 
@@ -57,7 +105,7 @@ func getCommits() ([]Commit, error) {
 		return nil, err
 	}
 
-	projectID, err := getProjectID()
+	projectID, err := getProjectID(projectName)
 	if err != nil {
 		return nil, err
 	}
@@ -130,18 +178,24 @@ func countCommitsByAuthor(commits []Commit) map[string]int {
 }
 
 func handleCommits(w http.ResponseWriter, r *http.Request) {
-	// Add CORS headers
+	// Enable CORS
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-	// Handle preflight OPTIONS request
 	if r.Method == "OPTIONS" {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 
-	commits, err := getCommits()
+	// Get project name from query parameter
+	projectName := r.URL.Query().Get("projectName")
+	if projectName == "" {
+		http.Error(w, "Project name is required", http.StatusBadRequest)
+		return
+	}
+
+	commits, err := getCommits(projectName)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error: %v", err), http.StatusInternalServerError)
 		return
