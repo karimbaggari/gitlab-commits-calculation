@@ -48,7 +48,7 @@ func getGitLabToken() (string, error) {
 	return token, nil
 }
 
-func getCommitsByAuthor(author string) ([]Commit, error) {
+func getCommits() ([]Commit, error) {
 	var allCommits []Commit
 	page := 1
 
@@ -56,20 +56,20 @@ func getCommitsByAuthor(author string) ([]Commit, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	projectID, err := getProjectID()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	token, err := getGitLabToken()
 	if err != nil {
 		return nil, err
 	}
 
 	for {
-		url := fmt.Sprintf("%s/projects/%d/repository/commits?all=true&author=%s&per_page=100&page=%d",
-			api, projectID, author, page)
+		url := fmt.Sprintf("%s/projects/%d/repository/commits?per_page=100&page=%d&all=true",
+			api, projectID, page)
 
 		req, _ := http.NewRequest("GET", url, nil)
 		req.Header.Set("PRIVATE-TOKEN", token)
@@ -91,15 +91,20 @@ func getCommitsByAuthor(author string) ([]Commit, error) {
 		}
 
 		if len(commits) == 0 {
+			// No more commits to fetch, break the loop
 			break
 		}
 
+		// Append fetched commits to the allCommits slice
 		allCommits = append(allCommits, commits...)
 
+		// Check for the next page of commits
 		nextPage := resp.Header.Get("X-Next-Page")
 		if nextPage == "" {
 			break
 		}
+
+		// Update page number to fetch next set of commits
 		page, _ = strconv.Atoi(nextPage)
 	}
 
@@ -114,30 +119,34 @@ func loadEnv() error {
 	return nil
 }
 
+func countCommitsByAuthor(commits []Commit) map[string]int {
+	authorCommitCount := make(map[string]int)
+
+	for _, commit := range commits {
+		authorCommitCount[commit.Author]++
+	}
+
+	return authorCommitCount
+}
+
 func main() {
 	if err := loadEnv(); err != nil {
 		fmt.Println("Warning:", err)
 	}
-	
-	author := "karim"
-	commits, err := getCommitsByAuthor(author)
+
+	commits, err := getCommits()
 	if err != nil {
 		fmt.Println("Error:", err)
 		return
 	}
 
-	fmt.Printf("Fetched %d commits from %s\n", len(commits), author)
-	if len(commits) > 0 {
-		displayCount := min(5, len(commits))
-		for _, commit := range commits[:displayCount] {
-			fmt.Printf("[%s] %s - %s\n", commit.ShortID, commit.CreatedAt, commit.Title)
-		}
-	}
-}
+	authorCommitCount := countCommitsByAuthor(commits)
 
-func min(a, b int) int {
-	if a < b {
-		return a
+	totalCommits := len(commits)
+	fmt.Printf("Total Commits: %d\n", totalCommits)
+
+
+	for author, count := range authorCommitCount {
+		fmt.Printf("%s: %d commits\n", author, count)
 	}
-	return b
 }
