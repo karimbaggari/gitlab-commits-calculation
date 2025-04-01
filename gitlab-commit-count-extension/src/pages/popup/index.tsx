@@ -62,7 +62,7 @@ const Popup = () => {
 
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:8000/commits?projectName=${encodeURIComponent(projectName)}`);
+      const response = await fetch(`https://extension-backend-production-1c13.up.railway.app/commits?projectName=${encodeURIComponent(projectName)}`);
       
       if (!response.ok) {
         throw new Error(`Server responded with status: ${response.status}`);
