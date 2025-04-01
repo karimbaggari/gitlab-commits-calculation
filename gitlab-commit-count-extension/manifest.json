@@ -1,0 +1,27 @@
+{
+    "manifest_version": 3,
+    "name": "GitLab Commit Stats",
+    "description": "Displays commit statistics from a GitLab repository.",
+    "version": "1.0",
+    "permissions": ["activeTab", "storage"],
+    "background": {
+      "service_worker": "/background/background.js"
+    },
+    "action": {
+      "default_popup": "/popup",
+      "default_icon": {
+        "16": "/icons/icon16.png",
+        "48": "/icons/icon48.png",
+        "128": "/icons/icon128.png"
+      }
+    },
+    "icons": {
+      "16": "/icons/icon16.png",
+      "48": "/icons/icon48.png",
+      "128": "/icons/icon128.png"
+    },
+    "host_permissions": [
+      "http://localhost:8080/*"
+    ]
+  }
+  
