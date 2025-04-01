@@ -129,24 +129,47 @@ func countCommitsByAuthor(commits []Commit) map[string]int {
 	return authorCommitCount
 }
 
+func handleCommits(w http.ResponseWriter, r *http.Request) {
+	// Add CORS headers
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "*")
+
+	// Handle preflight OPTIONS request
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	commits, err := getCommits()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	authorCommitCount := countCommitsByAuthor(commits)
+	
+	response := struct {
+		TotalCommits      int            `json:"total_commits"`
+		AuthorCommitCount map[string]int `json:"author_commit_count"`
+	}{
+		TotalCommits:      len(commits),
+		AuthorCommitCount: authorCommitCount,
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 func main() {
 	if err := loadEnv(); err != nil {
 		fmt.Println("Warning:", err)
 	}
 
-	commits, err := getCommits()
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
-
-	authorCommitCount := countCommitsByAuthor(commits)
-
-	totalCommits := len(commits)
-	fmt.Printf("Total Commits: %d\n", totalCommits)
-
-
-	for author, count := range authorCommitCount {
-		fmt.Printf("%s: %d commits\n", author, count)
+	http.HandleFunc("/commits", handleCommits)
+	
+	fmt.Println("Server starting on localhost:8000...")
+	if err := http.ListenAndServe(":8000", nil); err != nil {
+		fmt.Printf("Server error: %v\n", err)
 	}
 }
