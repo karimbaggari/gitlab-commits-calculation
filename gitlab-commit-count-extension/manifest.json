@@ -7,6 +7,6 @@
     "default_popup": "index.html",
     "default_icon": "icon.png"
   },
-  "permissions": ["activeTab", "http://localhost:8000/*"],
-  "host_permissions": ["http://localhost:8000/*"]
+  "permissions": ["activeTab", "https://extension-backend-production-1c13.up.railway.app/*"],
+  "host_permissions": ["https://extension-backend-production-1c13.up.railway.app/*"]
 }

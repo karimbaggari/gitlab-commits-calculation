@@ -7,6 +7,18 @@ fs.copyFileSync(
   path.join(__dirname, '../dist/background.js')
 );
 
+// Copy icon.png to dist root
+console.log('Copying icon.png to dist root...');
+try {
+  fs.copyFileSync(
+    path.join(__dirname, '../icon.png'),
+    path.join(__dirname, '../dist/icon.png')
+  );
+  console.log('Successfully copied icon.png to dist root');
+} catch (error) {
+  console.error('Error copying icon.png:', error);
+}
+
 // Rename _next folder to assets
 const nextDir = path.join(__dirname, '../dist/_next');
 const assetsDir = path.join(__dirname, '../dist/assets');

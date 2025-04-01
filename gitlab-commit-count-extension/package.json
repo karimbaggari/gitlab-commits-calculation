@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
-    "build:extension": "cross-env NODE_ENV=production next build && cp manifest.json dist/ && cp -r public/* dist/",
+    "build:extension": "cross-env NODE_ENV=production next build && cp manifest.json dist/ && cp -r public/* dist/ && node scripts/build-extension.js",
     "start": "next start",
     "lint": "next lint"
   },
