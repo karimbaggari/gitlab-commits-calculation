@@ -3,8 +3,8 @@ import { useState, useEffect } from "react"
 import { PieChart } from "@/components/pieChart"
 import { type ChartConfig } from "@/components/ui/chart"
 
-export default function ChartsPage() {
-  const [activeTab, setActiveTab] = useState<"weekly" | "monthly" | "yearly">("monthly")
+const Popup = () => {
+  const [activeTab] = useState<"weekly" | "monthly" | "yearly">("monthly")
   const [totalCommits, setTotalCommits] = useState<number | null>(null)
   const [authorStats, setAuthorStats] = useState<Record<string, number>>({})
   const [pieChartData, setPieChartData] = useState<Array<{name: string, value: number}>>([])
@@ -12,12 +12,12 @@ export default function ChartsPage() {
   const [projectName, setProjectName] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeView, setActiveView] = useState<"chart" | "contributors">("chart")
+
+  console.log(totalCommits)
   
-  // Time filtering for different views
   const getFilteredData = (data: Record<string, number>, timeFrame: "weekly" | "monthly" | "yearly") => {
-    // In a real app, we would filter by dates
-    // For this demo, we'll just adjust the values to simulate different time periods
-    const multiplier = timeFrame === "weekly" ? 0.25 : timeFrame === "monthly" ? 1 : 4;
+    const multiplier = timeFrame === "weekly" ? 0.1 : timeFrame === "monthly" ? 0.3 : 1;
     
     return Object.entries(data).map(([name, count]) => ({
       name,
@@ -25,7 +25,7 @@ export default function ChartsPage() {
     }));
   }
   
-  // Extract project name from GitLab URL
+
   const extractProjectNameFromUrl = (url: string): string | null => {
     try {
       const urlObj = new URL(url);
@@ -112,17 +112,7 @@ export default function ChartsPage() {
     }
   }, [authorStats, activeTab]);
 
-  // Get tab data
-  const getTabTotal = () => {
-    if (!totalCommits) return "Loading...";
-    
-    // Adjust total based on time period
-    if (activeTab === "weekly") return Math.round(totalCommits * 0.25);
-    if (activeTab === "yearly") return Math.round(totalCommits * 4);
-    return totalCommits;
-  };
 
-  // Get project name from URL on initial load
   useEffect(() => {
     if (typeof chrome !== 'undefined' && chrome.tabs) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -150,42 +140,81 @@ export default function ChartsPage() {
 
   return (
     <div style={{ 
-      display: "flex", 
-      flexDirection: "column", 
-      gap: "1.5rem", 
-      padding: "1.5rem", 
-      maxWidth: "800px", 
-      margin: "0 auto", 
-      fontFamily: "Arial" 
+      width: "320px",  // Standard extension popup width
+      maxHeight: "500px",
+      padding: "10px",
+      fontFamily: "Arial",
+      fontSize: "13px",
+      backgroundColor: "#f8fafc",
+      color: "#1e293b",
+      overflow: "auto"
     }}>
-      <div>
-        <h1 style={{ fontSize: "1.5rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
-          GitLab Commit Analytics
+      {/* Simplified Header */}
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "8px",
+        borderBottom: "2px solid #3b82f6",
+        paddingBottom: "6px",
+        position: "sticky",
+        top: 0,
+        backgroundColor: "#f8fafc",
+        zIndex: 10
+      }}>
+        <h1 style={{ 
+          fontSize: "16px", 
+          fontWeight: "bold", 
+          margin: 0, 
+          color: "#1e40af" 
+        }}>
+          GitLab Stats
         </h1>
         {projectName && (
-          <p style={{ color: "#666" }}>
-            Project: <strong>{projectName}</strong>
-          </p>
+          <span style={{ 
+            color: "#475569", 
+            fontSize: "12px", 
+            maxWidth: "140px", 
+            overflow: "hidden", 
+            textOverflow: "ellipsis", 
+            whiteSpace: "nowrap",
+            fontWeight: "500" 
+          }}>
+            {projectName}
+          </span>
         )}
       </div>
       
       {loading ? (
-        <div style={{ padding: "2rem", textAlign: "center" }}>
-          <p>Loading commit data...</p>
+        <div style={{ 
+          padding: "20px", 
+          textAlign: "center"
+        }}>
+          <div style={{ 
+            color: "#3b82f6", 
+            fontWeight: "bold" 
+          }}>Loading commit data...</div>
         </div>
       ) : error ? (
-        <div style={{ padding: "2rem", color: "red", textAlign: "center" }}>
-          <p>{error}</p>
+        <div style={{ 
+          padding: "15px", 
+          color: "#b91c1c", 
+          textAlign: "center",
+          backgroundColor: "#fee2e2",
+          borderRadius: "6px"
+        }}>
+          <p style={{ fontSize: "13px", fontWeight: "500", margin: "0 0 8px 0" }}>{error}</p>
           <button 
             onClick={fetchCommitData}
             style={{
-              marginTop: "1rem",
-              padding: "0.5rem 1rem",
-              backgroundColor: "#3b82f6",
+              padding: "5px 10px",
+              backgroundColor: "#2563eb",
               color: "white",
               border: "none",
-              borderRadius: "0.375rem",
+              borderRadius: "4px",
               cursor: "pointer",
+              fontSize: "12px",
+              fontWeight: "bold"
             }}
           >
             Retry
@@ -193,130 +222,147 @@ export default function ChartsPage() {
         </div>
       ) : (
         <>
-          {/* Time period selector */}
-          <div style={{ 
-            display: "flex", 
-            gap: "0.5rem", 
-            borderBottom: "1px solid #e5e7eb", 
-            paddingBottom: "0.5rem" 
-          }}>
-            {["weekly", "monthly", "yearly"].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab as "weekly" | "monthly" | "yearly")}
-                style={{ 
-                  padding: "0.5rem 1rem", 
-                  borderRadius: "0.375rem 0.375rem 0 0", 
-                  border: activeTab === tab ? "1px solid #e5e7eb" : "none", 
-                  borderBottom: activeTab === tab ? "none" : undefined,
-                  backgroundColor: activeTab === tab ? "#eff6ff" : "transparent",
-                  color: activeTab === tab ? "#2563eb" : "#4b5563",
-                  cursor: "pointer"
-                }}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </button>
-            ))}
+          {/* View selector */}
+          <div style={{display: "flex", marginBottom: "8px"}}>
+            <button 
+              onClick={() => setActiveView("chart")}
+              style={{
+                flex: 1,
+                padding: "4px",
+                backgroundColor: activeView === "chart" ? "#3b82f6" : "white",
+                color: activeView === "chart" ? "white" : "#64748b",
+                border: "1px solid #e2e8f0",
+                borderRadius: "4px 0 0 4px",
+                fontSize: "11px"
+              }}
+            >
+              Chart
+            </button>
+            <button 
+              onClick={() => setActiveView("contributors")}
+              style={{
+                flex: 1,
+                padding: "4px",
+                backgroundColor: activeView === "contributors" ? "#3b82f6" : "white",
+                color: activeView === "contributors" ? "white" : "#64748b",
+                border: "1px solid #e2e8f0",
+                borderRadius: "0 4px 4px 0",
+                borderLeft: "none",
+                fontSize: "11px"
+              }}
+            >
+              Contributors
+            </button>
           </div>
           
-          {/* Stats summary */}
-          <div style={{ 
-            display: "grid", 
-            gridTemplateColumns: "repeat(3, 1fr)", 
-            gap: "1rem" 
-          }}>
+          {/* Show selected view */}
+          {activeView === "chart" ? (
             <div style={{ 
-              padding: "1rem", 
-              backgroundColor: "#eff6ff", 
-              borderRadius: "0.5rem" 
+              backgroundColor: "white", 
+              borderRadius: "6px", 
+              padding: "10px",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
             }}>
               <h3 style={{ 
-                fontSize: "0.75rem", 
-                textTransform: "uppercase", 
-                color: "#1d4ed8", 
+                fontSize: "14px", 
                 fontWeight: "600", 
-                marginBottom: "0.5rem" 
+                margin: "0 0 8px 0",
+                color: "#1e40af"
               }}>
-                Total Commits
+                Commit Distribution
               </h3>
-              <p style={{ 
-                fontSize: "1.875rem", 
-                fontWeight: "bold", 
-                color: "#1e3a8a" 
-              }}>
-                {getTabTotal()}
-              </p>
-            </div>
-            <div style={{ 
-              padding: "1rem", 
-              backgroundColor: "#eef2ff", 
-              borderRadius: "0.5rem" 
-            }}>
-              <h3 style={{ 
-                fontSize: "0.75rem", 
-                textTransform: "uppercase", 
-                color: "#4f46e5", 
-                fontWeight: "600", 
-                marginBottom: "0.5rem"
-              }}>
-                Top Contributor
-              </h3>
-              <p style={{ 
-                fontSize: "1.875rem", 
-                fontWeight: "bold", 
-                color: "#3730a3" 
-              }}>
-                {pieChartData[0]?.name || "N/A"}
-              </p>
-            </div>
-            <div style={{ 
-              padding: "1rem", 
-              backgroundColor: "#ecfdf5", 
-              borderRadius: "0.5rem" 
-            }}>
-              <h3 style={{ 
-                fontSize: "0.75rem", 
-                textTransform: "uppercase", 
-                color: "#047857", 
-                fontWeight: "600", 
-                marginBottom: "0.5rem"
-              }}>
-                Contributors
-              </h3>
-              <p style={{ 
-                fontSize: "1.875rem", 
-                fontWeight: "bold", 
-                color: "#064e3b" 
-              }}>
-                {pieChartData.length}
-              </p>
-            </div>
-          </div>
-          
-          {/* Chart visualization */}
-          {pieChartData.length > 0 && (
-            <div style={{ 
-              border: "1px solid #e5e7eb", 
-              borderRadius: "0.5rem", 
-              padding: "1.5rem" 
-            }}>
-              <h2 style={{ 
-                fontSize: "1.25rem", 
-                fontWeight: "600", 
-                marginBottom: "1rem" 
-              }}>
-                Commits by Author ({activeTab})
-              </h2>
-              <div style={{ height: "400px" }}>
+              <div style={{ height: "200px" }}>
                 <PieChart 
                   data={pieChartData} 
                   config={pieChartConfig} 
                 />
               </div>
             </div>
+          ) : (
+            <div style={{
+              backgroundColor: "white",
+              borderRadius: "6px",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+            }}>
+              <div style={{
+                padding: "8px 10px",
+                backgroundColor: "#3b82f6",
+                color: "white",
+                fontWeight: "600",
+                fontSize: "13px",
+                borderRadius: "6px 6px 0 0"
+              }}>
+                Contributors
+              </div>
+              
+              <div style={{ maxHeight: "250px", overflowY: "auto" }}>
+                {pieChartData.map((item, index) => (
+                  <div key={item.name} style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    padding: "4px 8px",
+                    borderBottom: "1px solid #f1f5f9",
+                    backgroundColor: index < 3 ? index === 0 ? "#f0f9ff" : "#f8fafc" : "white",
+                    fontSize: "11px"
+                  }}>
+                    <div style={{
+                      display: "flex",
+                      alignItems: "center",
+                      width: "75%"
+                    }}>
+                      {index < 3 && (
+                        <div style={{
+                          minWidth: "18px",
+                          height: "18px",
+                          borderRadius: "50%",
+                          marginRight: "8px",
+                          backgroundColor: pieChartConfig[item.name]?.color || "#ccc",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "white",
+                          fontWeight: "bold",
+                          fontSize: "10px"
+                        }}>
+                          {index + 1}
+                        </div>
+                      )}
+                      {index >= 3 && (
+                        <div style={{
+                          width: "8px",
+                          height: "8px",
+                          borderRadius: "50%",
+                          minWidth: "8px",
+                          marginRight: "8px",
+                          backgroundColor: pieChartConfig[item.name]?.color || "#ccc"
+                        }} />
+                      )}
+                      <span style={{
+                        whiteSpace: "nowrap", 
+                        overflow: "hidden", 
+                        textOverflow: "ellipsis",
+                        fontWeight: index < 3 ? "500" : "normal"
+                      }}>
+                        {item.name}
+                      </span>
+                    </div>
+                    <div style={{
+                      fontWeight: index < 3 ? "bold" : "500",
+                      color: index === 0 ? "#1e40af" : "#334155",
+                      display: "flex",
+                      alignItems: "center"
+                    }}>
+                      {item.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </>
       )}
     </div>
-  )
-} 
+  );
+};
+
+export default Popup; 
