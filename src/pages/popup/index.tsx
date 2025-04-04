@@ -1,10 +1,10 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { PieChart } from "@/components/pieChart"
 import { type ChartConfig } from "@/components/ui/chart"
 
 const Popup = () => {
-  const [activeTab] = useState<"weekly" | "monthly" | "yearly">("monthly")
+  const [activeTab, setActiveTab] = useState<"weekly" | "monthly" | "yearly" | "all">("all")
   const [totalCommits, setTotalCommits] = useState<number | null>(null)
   const [authorStats, setAuthorStats] = useState<Record<string, number>>({})
   const [pieChartData, setPieChartData] = useState<Array<{name: string, value: number}>>([])
@@ -16,15 +16,29 @@ const Popup = () => {
 
   console.log(totalCommits)
   
-  const getFilteredData = (data: Record<string, number>, timeFrame: "weekly" | "monthly" | "yearly") => {
-    const multiplier = timeFrame === "weekly" ? 0.1 : timeFrame === "monthly" ? 0.3 : 1;
+  const getFilteredData = (data: Record<string, number>, timeFrame: "weekly" | "monthly" | "yearly" | "all") => {
+    if (timeFrame === "all") {
+      return Object.entries(data).map(([name, count]) => ({
+        name,
+        value: count
+      }));
+    }
     
+    const multiplier = timeFrame === "weekly" ? 0.1 : timeFrame === "monthly" ? 0.3 : 1;
     return Object.entries(data).map(([name, count]) => ({
       name,
       value: Math.round(count * multiplier)
     }));
   }
   
+  const getTabTotal = () => {
+    if (!totalCommits) return "Loading...";
+    
+    if (activeTab === "all") return totalCommits;
+    if (activeTab === "weekly") return Math.round(totalCommits * 0.1);
+    if (activeTab === "monthly") return Math.round(totalCommits * 0.3);
+    return totalCommits;
+  };
 
   const extractProjectNameFromUrl = (url: string): string | null => {
     try {
@@ -57,7 +71,7 @@ const Popup = () => {
     }
   };
 
-  const fetchCommitData = async () => {
+  const fetchCommitData = useCallback(async () => {
     if (!projectName) {
       setError("No GitLab project detected");
       setLoading(false);
@@ -85,7 +99,7 @@ const Popup = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectName]);
 
   // Create chart data from author stats
   useEffect(() => {
@@ -136,20 +150,19 @@ const Popup = () => {
     if (projectName) {
       fetchCommitData();
     }
-  }, [projectName]);
+  }, [projectName, fetchCommitData]);
 
   return (
     <div style={{ 
-      width: "320px",  // Standard extension popup width
-      maxHeight: "500px",
-      padding: "10px",
+      width: "280px",
+      height: "450px",
+      padding: "8px",
       fontFamily: "Arial",
-      fontSize: "13px",
+      fontSize: "12px",
       backgroundColor: "#f8fafc",
       color: "#1e293b",
       overflow: "auto"
     }}>
-      {/* Simplified Header */}
       <div style={{
         display: "flex",
         justifyContent: "space-between",
@@ -163,7 +176,7 @@ const Popup = () => {
         zIndex: 10
       }}>
         <h1 style={{ 
-          fontSize: "16px", 
+          fontSize: "15px", 
           fontWeight: "bold", 
           margin: 0, 
           color: "#1e40af" 
@@ -173,7 +186,7 @@ const Popup = () => {
         {projectName && (
           <span style={{ 
             color: "#475569", 
-            fontSize: "12px", 
+            fontSize: "11px", 
             maxWidth: "140px", 
             overflow: "hidden", 
             textOverflow: "ellipsis", 
@@ -186,14 +199,8 @@ const Popup = () => {
       </div>
       
       {loading ? (
-        <div style={{ 
-          padding: "20px", 
-          textAlign: "center"
-        }}>
-          <div style={{ 
-            color: "#3b82f6", 
-            fontWeight: "bold" 
-          }}>Loading commit data...</div>
+        <div style={{ padding: "20px", textAlign: "center" }}>
+          <div style={{ color: "#3b82f6", fontWeight: "bold" }}>Loading commit data...</div>
         </div>
       ) : error ? (
         <div style={{ 
@@ -222,56 +229,105 @@ const Popup = () => {
         </div>
       ) : (
         <>
-          {/* View selector */}
-          <div style={{display: "flex", marginBottom: "8px"}}>
-            <button 
+          {/* Stats info - compact */}
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            backgroundColor: "#dbeafe",
+            padding: "6px",
+            borderRadius: "4px",
+            marginBottom: "8px"
+          }}>
+            <div style={{textAlign: "center", flex: 1}}>
+              <div style={{fontSize: "10px", color: "#1e40af"}}>Commits</div>
+              <div style={{fontWeight: "bold", fontSize: "14px"}}>{getTabTotal()}</div>
+            </div>
+            <div style={{textAlign: "center", flex: 1}}>
+              <div style={{fontSize: "10px", color: "#1e40af"}}>Contributors</div>
+              <div style={{fontWeight: "bold", fontSize: "14px"}}>{pieChartData.length}</div>
+            </div>
+          </div>
+          
+          {/* Main view tabs */}
+          <div style={{
+            display: "flex",
+            marginBottom: "8px",
+            backgroundColor: "white",
+            borderRadius: "4px",
+            overflow: "hidden"
+          }}>
+            <button
               onClick={() => setActiveView("chart")}
               style={{
                 flex: 1,
-                padding: "4px",
+                padding: "6px 4px",
                 backgroundColor: activeView === "chart" ? "#3b82f6" : "white",
                 color: activeView === "chart" ? "white" : "#64748b",
-                border: "1px solid #e2e8f0",
-                borderRadius: "4px 0 0 4px",
-                fontSize: "11px"
+                border: "none",
+                cursor: "pointer",
+                fontSize: "12px",
+                fontWeight: "bold",
+                borderRight: "1px solid #e2e8f0"
               }}
             >
               Chart
             </button>
-            <button 
+            <button
               onClick={() => setActiveView("contributors")}
               style={{
                 flex: 1,
-                padding: "4px",
+                padding: "6px 4px",
                 backgroundColor: activeView === "contributors" ? "#3b82f6" : "white",
                 color: activeView === "contributors" ? "white" : "#64748b",
-                border: "1px solid #e2e8f0",
-                borderRadius: "0 4px 4px 0",
-                borderLeft: "none",
-                fontSize: "11px"
+                border: "none",
+                cursor: "pointer",
+                fontSize: "12px",
+                fontWeight: "bold"
               }}
             >
               Contributors
             </button>
           </div>
           
-          {/* Show selected view */}
+          {/* Time period tabs */}
+          <div style={{
+            display: "flex",
+            marginBottom: "8px",
+            backgroundColor: "white",
+            borderRadius: "4px",
+            padding: "2px",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
+          }}>
+            {["all", "yearly", "monthly", "weekly"].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab as "all" | "weekly" | "monthly" | "yearly")}
+                style={{
+                  flex: 1,
+                  padding: "4px 2px",
+                  backgroundColor: activeTab === tab ? "#4f46e5" : "transparent",
+                  color: activeTab === tab ? "white" : "#64748b",
+                  border: "none",
+                  borderRadius: "3px",
+                  cursor: "pointer",
+                  fontSize: "10px",
+                  fontWeight: activeTab === tab ? "bold" : "normal"
+                }}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            ))}
+          </div>
+          
+          {/* Content based on active view */}
           {activeView === "chart" ? (
-            <div style={{ 
-              backgroundColor: "white", 
-              borderRadius: "6px", 
-              padding: "10px",
+            <div style={{
+              backgroundColor: "white",
+              borderRadius: "6px",
+              padding: "8px",
               boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
             }}>
-              <h3 style={{ 
-                fontSize: "14px", 
-                fontWeight: "600", 
-                margin: "0 0 8px 0",
-                color: "#1e40af"
-              }}>
-                Commit Distribution
-              </h3>
-              <div style={{ height: "200px" }}>
+              <div style={{ height: "280px" }}>
                 <PieChart 
                   data={pieChartData} 
                   config={pieChartConfig} 
@@ -282,28 +338,21 @@ const Popup = () => {
             <div style={{
               backgroundColor: "white",
               borderRadius: "6px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              overflow: "hidden"
             }}>
-              <div style={{
-                padding: "8px 10px",
-                backgroundColor: "#3b82f6",
-                color: "white",
-                fontWeight: "600",
-                fontSize: "13px",
-                borderRadius: "6px 6px 0 0"
+              <div style={{ 
+                maxHeight: "280px", 
+                overflowY: "auto",
+                padding: "0" 
               }}>
-                Contributors
-              </div>
-              
-              <div style={{ maxHeight: "250px", overflowY: "auto" }}>
                 {pieChartData.map((item, index) => (
                   <div key={item.name} style={{
                     display: "flex",
                     justifyContent: "space-between",
-                    padding: "4px 8px",
+                    padding: "6px 8px",
                     borderBottom: "1px solid #f1f5f9",
-                    backgroundColor: index < 3 ? index === 0 ? "#f0f9ff" : "#f8fafc" : "white",
-                    fontSize: "11px"
+                    backgroundColor: index < 3 ? index === 0 ? "#f0f9ff" : "#f8fafc" : "white"
                   }}>
                     <div style={{
                       display: "flex",
@@ -312,17 +361,17 @@ const Popup = () => {
                     }}>
                       {index < 3 && (
                         <div style={{
-                          minWidth: "18px",
-                          height: "18px",
+                          minWidth: "16px",
+                          height: "16px",
                           borderRadius: "50%",
-                          marginRight: "8px",
+                          marginRight: "6px",
                           backgroundColor: pieChartConfig[item.name]?.color || "#ccc",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
                           color: "white",
                           fontWeight: "bold",
-                          fontSize: "10px"
+                          fontSize: "9px"
                         }}>
                           {index + 1}
                         </div>
@@ -333,15 +382,16 @@ const Popup = () => {
                           height: "8px",
                           borderRadius: "50%",
                           minWidth: "8px",
-                          marginRight: "8px",
+                          marginRight: "6px",
                           backgroundColor: pieChartConfig[item.name]?.color || "#ccc"
                         }} />
                       )}
                       <span style={{
-                        whiteSpace: "nowrap", 
-                        overflow: "hidden", 
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
                         textOverflow: "ellipsis",
-                        fontWeight: index < 3 ? "500" : "normal"
+                        fontWeight: index < 3 ? "500" : "normal",
+                        fontSize: "11px"
                       }}>
                         {item.name}
                       </span>
@@ -349,8 +399,7 @@ const Popup = () => {
                     <div style={{
                       fontWeight: index < 3 ? "bold" : "500",
                       color: index === 0 ? "#1e40af" : "#334155",
-                      display: "flex",
-                      alignItems: "center"
+                      fontSize: "11px"
                     }}>
                       {item.value}
                     </div>
