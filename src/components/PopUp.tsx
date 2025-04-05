@@ -1,74 +1,30 @@
 "use client"
 import { useState, useEffect, useCallback } from "react"
-import { PieChart } from "@/components/pieChart"
+import { PieChart } from "@/components/PieChart"
 import { type ChartConfig } from "@/components/ui/chart"
+import {
+  Commit,
+  getFilteredData,
+  getAuthorStats,
+  getTabTotal,
+  extractProjectNameFromUrl
+} from "@/lib/helpers"
+import { fetchGitLabCommits } from "@/pages/api/gitlab"
 
 const Popup = () => {
   const [activeTab, setActiveTab] = useState<"weekly" | "monthly" | "yearly" | "all">("all")
-  const [totalCommits, setTotalCommits] = useState<number | null>(null)
+  const [commits, setCommits] = useState<Commit[]>([])
+  const [totalCommits, setTotalCommits] = useState<number>(0)
   const [authorStats, setAuthorStats] = useState<Record<string, number>>({})
-  const [pieChartData, setPieChartData] = useState<Array<{name: string, value: number}>>([])
+  const [pieChartData, setPieChartData] = useState<Array<{ name: string, value: number }>>([])
   const [pieChartConfig, setPieChartConfig] = useState<ChartConfig>({})
   const [projectName, setProjectName] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeView, setActiveView] = useState<"chart" | "contributors">("chart")
 
-  console.log(totalCommits)
-  
-  const getFilteredData = (data: Record<string, number>, timeFrame: "weekly" | "monthly" | "yearly" | "all") => {
-    if (timeFrame === "all") {
-      return Object.entries(data).map(([name, count]) => ({
-        name,
-        value: count
-      }));
-    }
-    
-    const multiplier = timeFrame === "weekly" ? 0.1 : timeFrame === "monthly" ? 0.3 : 1;
-    return Object.entries(data).map(([name, count]) => ({
-      name,
-      value: Math.round(count * multiplier)
-    }));
-  }
-  
-  const getTabTotal = () => {
-    if (!totalCommits) return "Loading...";
-    
-    if (activeTab === "all") return totalCommits;
-    if (activeTab === "weekly") return Math.round(totalCommits * 0.1);
-    if (activeTab === "monthly") return Math.round(totalCommits * 0.3);
-    return totalCommits;
-  };
-
-  const extractProjectNameFromUrl = (url: string): string | null => {
-    try {
-      const urlObj = new URL(url);
-      if (!urlObj.hostname.includes("gitlab")) return null;
-      
-      // Remove the domain part
-      const pathParts = urlObj.pathname.split('/').filter(Boolean);
-      
-      // Find the project name (it's before the "/-/" part if it exists)
-      if (pathParts.length >= 2) {
-        // For URLs like gitlab.com/jobzyn/jobzyn-monorepo/-/tree/...
-        const fullPath = urlObj.pathname;
-        const projectPathEnd = fullPath.indexOf("/-/");
-        
-        if (projectPathEnd !== -1) {
-          const projectPath = fullPath.substring(1, projectPathEnd);
-          const projectNameParts = projectPath.split('/');
-          // Get the last part of the project path as the project name
-          return projectNameParts[projectNameParts.length - 1];
-        } else {
-          // For URLs without "/-/" like gitlab.com/jobzyn/jobzyn-monorepo
-          return pathParts[pathParts.length - 1];
-        }
-      }
-      return null;
-    } catch (e) {
-      console.error("Error parsing URL:", e);
-      return null;
-    }
+  const getCurrentTabTotal = () => {
+    return getTabTotal(commits, totalCommits, activeTab);
   };
 
   const fetchCommitData = useCallback(async () => {
@@ -80,18 +36,13 @@ const Popup = () => {
 
     try {
       setLoading(true);
-      const response = await fetch(
-        `https://extension-backend-production-1c13.up.railway.app/commits?projectName=${encodeURIComponent(projectName)}`
-      );
-      
-      if (!response.ok) {
-        throw new Error(`Server responded with status: ${response.status}`);
-      }
+      const data = await fetchGitLabCommits(projectName);
+      const allCommits = data.commits || [];
 
-      const data = await response.json();
-      setTotalCommits(data.total_commits);
-      setAuthorStats(data.author_commit_count);
-      
+      setCommits(allCommits);
+      setTotalCommits(allCommits.length);
+      setAuthorStats(getAuthorStats(allCommits));
+
       setError(null);
     } catch (error) {
       console.error("Error fetching commit data:", error);
@@ -101,31 +52,26 @@ const Popup = () => {
     }
   }, [projectName]);
 
-  // Create chart data from author stats
   useEffect(() => {
-    if (Object.keys(authorStats).length > 0) {
-      // Convert to chart format
-      const chartData = getFilteredData(authorStats, activeTab);
-      
-      // Sort by commit count (descending)
-      chartData.sort((a, b) => b.value - a.value);
-      
-      // Create color config for each author
+    if (commits.length > 0) {
+      const filteredData = getFilteredData(commits, activeTab, authorStats);
+
+      filteredData.sort((a, b) => b.value - a.value);
+
       const colors = ["#2563eb", "#60a5fa", "#93c5fd", "#3b82f6", "#1d4ed8", "#1e40af", "#818cf8", "#4f46e5"];
       const config: ChartConfig = {};
-      
-      chartData.forEach((item, index) => {
+
+      filteredData.forEach((item, index) => {
         config[item.name] = {
           label: item.name,
           color: colors[index % colors.length],
         };
       });
-      
-      setPieChartData(chartData);
+
+      setPieChartData(filteredData);
       setPieChartConfig(config);
     }
-  }, [authorStats, activeTab]);
-
+  }, [commits, activeTab, authorStats]);
 
   useEffect(() => {
     if (typeof chrome !== 'undefined' && chrome.tabs) {
@@ -140,12 +86,10 @@ const Popup = () => {
         }
       });
     } else {
-      // For development outside of extension context
       setProjectName("demo-project");
     }
   }, []);
 
-  // Fetch data when project name is available
   useEffect(() => {
     if (projectName) {
       fetchCommitData();
@@ -153,7 +97,7 @@ const Popup = () => {
   }, [projectName, fetchCommitData]);
 
   return (
-    <div style={{ 
+    <div style={{
       width: "280px",
       height: "450px",
       padding: "8px",
@@ -175,43 +119,43 @@ const Popup = () => {
         backgroundColor: "#f8fafc",
         zIndex: 10
       }}>
-        <h1 style={{ 
-          fontSize: "15px", 
-          fontWeight: "bold", 
-          margin: 0, 
-          color: "#1e40af" 
+        <h1 style={{
+          fontSize: "15px",
+          fontWeight: "bold",
+          margin: 0,
+          color: "#1e40af"
         }}>
           GitLab Stats
         </h1>
         {projectName && (
-          <span style={{ 
-            color: "#475569", 
-            fontSize: "11px", 
-            maxWidth: "140px", 
-            overflow: "hidden", 
-            textOverflow: "ellipsis", 
+          <span style={{
+            color: "#475569",
+            fontSize: "11px",
+            maxWidth: "140px",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
             whiteSpace: "nowrap",
-            fontWeight: "500" 
+            fontWeight: "500"
           }}>
             {projectName}
           </span>
         )}
       </div>
-      
+
       {loading ? (
         <div style={{ padding: "20px", textAlign: "center" }}>
           <div style={{ color: "#3b82f6", fontWeight: "bold" }}>Loading commit data...</div>
         </div>
       ) : error ? (
-        <div style={{ 
-          padding: "15px", 
-          color: "#b91c1c", 
+        <div style={{
+          padding: "15px",
+          color: "#b91c1c",
           textAlign: "center",
           backgroundColor: "#fee2e2",
           borderRadius: "6px"
         }}>
           <p style={{ fontSize: "13px", fontWeight: "500", margin: "0 0 8px 0" }}>{error}</p>
-          <button 
+          <button
             onClick={fetchCommitData}
             style={{
               padding: "5px 10px",
@@ -238,16 +182,16 @@ const Popup = () => {
             borderRadius: "4px",
             marginBottom: "8px"
           }}>
-            <div style={{textAlign: "center", flex: 1}}>
-              <div style={{fontSize: "10px", color: "#1e40af"}}>Commits</div>
-              <div style={{fontWeight: "bold", fontSize: "14px"}}>{getTabTotal()}</div>
+            <div style={{ textAlign: "center", flex: 1 }}>
+              <div style={{ fontSize: "10px", color: "#1e40af" }}>Commits</div>
+              <div style={{ fontWeight: "bold", fontSize: "14px" }}>{getCurrentTabTotal()}</div>
             </div>
-            <div style={{textAlign: "center", flex: 1}}>
-              <div style={{fontSize: "10px", color: "#1e40af"}}>Contributors</div>
-              <div style={{fontWeight: "bold", fontSize: "14px"}}>{pieChartData.length}</div>
+            <div style={{ textAlign: "center", flex: 1 }}>
+              <div style={{ fontSize: "10px", color: "#1e40af" }}>Contributors</div>
+              <div style={{ fontWeight: "bold", fontSize: "14px" }}>{pieChartData.length}</div>
             </div>
           </div>
-          
+
           {/* Main view tabs */}
           <div style={{
             display: "flex",
@@ -288,8 +232,8 @@ const Popup = () => {
               Contributors
             </button>
           </div>
-          
-          {/* Time period tabs */}
+
+
           <div style={{
             display: "flex",
             marginBottom: "8px",
@@ -318,7 +262,7 @@ const Popup = () => {
               </button>
             ))}
           </div>
-          
+
           {/* Content based on active view */}
           {activeView === "chart" ? (
             <div style={{
@@ -328,9 +272,9 @@ const Popup = () => {
               boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
             }}>
               <div style={{ height: "280px" }}>
-                <PieChart 
-                  data={pieChartData} 
-                  config={pieChartConfig} 
+                <PieChart
+                  data={pieChartData}
+                  config={pieChartConfig}
                 />
               </div>
             </div>
@@ -341,10 +285,10 @@ const Popup = () => {
               boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
               overflow: "hidden"
             }}>
-              <div style={{ 
-                maxHeight: "280px", 
+              <div style={{
+                maxHeight: "280px",
                 overflowY: "auto",
-                padding: "0" 
+                padding: "0"
               }}>
                 {pieChartData.map((item, index) => (
                   <div key={item.name} style={{

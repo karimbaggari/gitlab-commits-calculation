@@ -1,4 +1,4 @@
-import Popup from "./popup";
+import Popup from "../components/PopUp";
 
 export default function Home() {
   return (

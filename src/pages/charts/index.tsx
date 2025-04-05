@@ -1,6 +1,7 @@
+// ? just a typical chart page for testing purposes
 "use client"
 import { useState } from "react"
-import { PieChart } from "@/components/pieChart"
+import { PieChart } from "@/components/PieChart"
 import { type ChartConfig } from "@/components/ui/chart"
 
 export default function ChartsPage() {
