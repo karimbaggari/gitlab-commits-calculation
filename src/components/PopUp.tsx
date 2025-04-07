@@ -5,16 +5,15 @@ import { type ChartConfig } from "@/components/ui/chart"
 import {
   Commit,
   getFilteredData,
-  getAuthorStats,
   getTabTotal,
-  extractProjectNameFromUrl
+  extractProjectNameFromUrl,
 } from "@/lib/helpers"
-import { fetchGitLabCommits } from "@/pages/api/gitlab"
+// import { fetchGitLabCommits } from "@/pages/api/gitlab"
 
 const Popup = () => {
   const [activeTab, setActiveTab] = useState<"weekly" | "monthly" | "yearly" | "all">("all")
-  const [commits, setCommits] = useState<Commit[]>([])
-  const [totalCommits, setTotalCommits] = useState<number>(0)
+  const [commits] = useState<Commit[]>([])
+  const [totalCommits, setTotalCommits] = useState<number | null>(null)
   const [authorStats, setAuthorStats] = useState<Record<string, number>>({})
   const [pieChartData, setPieChartData] = useState<Array<{ name: string, value: number }>>([])
   const [pieChartConfig, setPieChartConfig] = useState<ChartConfig>({})
@@ -24,7 +23,7 @@ const Popup = () => {
   const [activeView, setActiveView] = useState<"chart" | "contributors">("chart")
 
   const getCurrentTabTotal = () => {
-    return getTabTotal(commits, totalCommits, activeTab);
+    return totalCommits ? getTabTotal(commits, totalCommits, activeTab) : "Loading...";
   };
 
   const fetchCommitData = useCallback(async () => {
@@ -36,13 +35,20 @@ const Popup = () => {
 
     try {
       setLoading(true);
-      const data = await fetchGitLabCommits(projectName);
-      const allCommits = data.commits || [];
+      const response = await fetch(
+        `https://extension-backend-production-1c13.up.railway.app/commits?projectName=${encodeURIComponent(projectName)}`
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Server responded with status: ${response.status}`);
+      }
 
-      setCommits(allCommits);
-      setTotalCommits(allCommits.length);
-      setAuthorStats(getAuthorStats(allCommits));
-
+      const data = await response.json();
+      console.log("API response:", data);
+      
+      setTotalCommits(data.total_commits);
+      setAuthorStats(data.author_commit_count || {});
+      
       setError(null);
     } catch (error) {
       console.error("Error fetching commit data:", error);
@@ -53,25 +59,25 @@ const Popup = () => {
   }, [projectName]);
 
   useEffect(() => {
-    if (commits.length > 0) {
+    if (Object.keys(authorStats).length > 0) {
       const filteredData = getFilteredData(commits, activeTab, authorStats);
-
+      
       filteredData.sort((a, b) => b.value - a.value);
-
+      
       const colors = ["#2563eb", "#60a5fa", "#93c5fd", "#3b82f6", "#1d4ed8", "#1e40af", "#818cf8", "#4f46e5"];
       const config: ChartConfig = {};
-
+      
       filteredData.forEach((item, index) => {
         config[item.name] = {
           label: item.name,
           color: colors[index % colors.length],
         };
       });
-
+      
       setPieChartData(filteredData);
       setPieChartConfig(config);
     }
-  }, [commits, activeTab, authorStats]);
+  }, [authorStats, activeTab, commits]);
 
   useEffect(() => {
     if (typeof chrome !== 'undefined' && chrome.tabs) {
@@ -98,11 +104,11 @@ const Popup = () => {
 
   return (
     <div style={{
-      width: "280px",
-      height: "450px",
-      padding: "8px",
+      width: "320px",
+      maxHeight: "500px",
+      padding: "10px",
       fontFamily: "Arial",
-      fontSize: "12px",
+      fontSize: "13px",
       backgroundColor: "#f8fafc",
       color: "#1e293b",
       overflow: "auto"
@@ -120,7 +126,7 @@ const Popup = () => {
         zIndex: 10
       }}>
         <h1 style={{
-          fontSize: "15px",
+          fontSize: "16px",
           fontWeight: "bold",
           margin: 0,
           color: "#1e40af"
@@ -130,7 +136,7 @@ const Popup = () => {
         {projectName && (
           <span style={{
             color: "#475569",
-            fontSize: "11px",
+            fontSize: "12px",
             maxWidth: "140px",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -173,25 +179,6 @@ const Popup = () => {
         </div>
       ) : (
         <>
-          {/* Stats info - compact */}
-          <div style={{
-            display: "flex",
-            justifyContent: "space-between",
-            backgroundColor: "#dbeafe",
-            padding: "6px",
-            borderRadius: "4px",
-            marginBottom: "8px"
-          }}>
-            <div style={{ textAlign: "center", flex: 1 }}>
-              <div style={{ fontSize: "10px", color: "#1e40af" }}>Commits</div>
-              <div style={{ fontWeight: "bold", fontSize: "14px" }}>{getCurrentTabTotal()}</div>
-            </div>
-            <div style={{ textAlign: "center", flex: 1 }}>
-              <div style={{ fontSize: "10px", color: "#1e40af" }}>Contributors</div>
-              <div style={{ fontWeight: "bold", fontSize: "14px" }}>{pieChartData.length}</div>
-            </div>
-          </div>
-
           {/* Main view tabs */}
           <div style={{
             display: "flex",
@@ -233,7 +220,7 @@ const Popup = () => {
             </button>
           </div>
 
-
+          {/* Time period tabs */}
           <div style={{
             display: "flex",
             marginBottom: "8px",
@@ -261,6 +248,25 @@ const Popup = () => {
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
               </button>
             ))}
+          </div>
+
+          {/* Stats info */}
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            backgroundColor: "#dbeafe",
+            padding: "8px",
+            borderRadius: "4px",
+            marginBottom: "10px"
+          }}>
+            <div>
+              <div style={{fontSize: "11px", color: "#1e40af"}}>Total Commits</div>
+              <div style={{fontWeight: "bold", fontSize: "16px"}}>{getCurrentTabTotal()}</div>
+            </div>
+            <div>
+              <div style={{fontSize: "11px", color: "#1e40af"}}>Contributors</div>
+              <div style={{fontWeight: "bold", fontSize: "16px"}}>{pieChartData.length}</div>
+            </div>
           </div>
 
           {/* Content based on active view */}

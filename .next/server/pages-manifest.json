@@ -1,9 +1,9 @@
 {
-  "/_app": "pages/_app.js",
-  "/_document": "pages/_document.js",
-  "/api/hello": "pages/api/hello.js",
   "/charts": "pages/charts.html",
+  "/_app": "pages/_app.js",
+  "/api/hello": "pages/api/hello.js",
   "/": "pages/index.html",
+  "/_document": "pages/_document.js",
   "/_error": "pages/_error.js",
   "/api/gitlab": "pages/api/gitlab.js",
   "/404": "pages/404.html"

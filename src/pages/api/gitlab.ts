@@ -12,6 +12,7 @@ export const fetchGitLabCommits = async (projectName: string): Promise<CommitRes
     `https://extension-backend-production-1c13.up.railway.app/commits?projectName=${encodeURIComponent(projectName)}`
   );
   
+  console.log("response", response);
   if (!response.ok) {
     throw new Error(`Server responded with status: ${response.status}`);
   }
