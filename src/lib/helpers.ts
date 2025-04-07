@@ -13,6 +13,7 @@ export interface Commit {
    * Filters commits data based on selected time frame
    */
   export const getFilteredData = (commits: Commit[], timeFrame: "weekly" | "monthly" | "yearly" | "all", authorStats: Record<string, number>) => {
+    console.log("getFilteredData", commits, timeFrame, authorStats);
     if (timeFrame === "all") {
       return Object.entries(authorStats).map(([name, count]) => ({
         name,

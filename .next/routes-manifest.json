@@ -39,12 +39,6 @@
       "regex": "^/charts(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/charts(?:/)?$"
-    },
-    {
-      "page": "/popup",
-      "regex": "^/popup(?:/)?$",
-      "routeKeys": {},
-      "namedRegex": "^/popup(?:/)?$"
     }
   ],
   "dataRoutes": [],
