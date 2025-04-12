@@ -10,12 +10,30 @@ export function PieChart({
   data: Array<{name: string, value: number}>, 
   config: ChartConfig 
 }) {
+  const filteredData = data.filter(entry => entry.value >= 50);
+  
+  if (filteredData.length === 0) {
+    return (
+      <div style={{
+        height: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+        color: "#64748b",
+        fontSize: "14px"
+      }}>
+        No contributors with 50+ commits
+      </div>
+    );
+  }
+  
   return (
     <ChartContainer config={config} className="min-h-[250px] w-full">
       <ResponsiveContainer width="100%" height="100%">
         <RechartsPieChart>
           <Pie
-            data={data}
+            data={filteredData}
             dataKey="value"
             nameKey="name"
             cx="50%"
@@ -24,7 +42,7 @@ export function PieChart({
             fill="#8884d8"
             label={(entry) => entry.name}
           >
-            {data.map((entry, index) => {
+            {filteredData.map((entry, index) => {
               const key = entry.name;
               const color = config[key]?.color || "#8884d8";
               return <Cell key={`cell-${index}`} fill={color} />;
@@ -34,5 +52,5 @@ export function PieChart({
         </RechartsPieChart>
       </ResponsiveContainer>
     </ChartContainer>
-  )
+  );
 }

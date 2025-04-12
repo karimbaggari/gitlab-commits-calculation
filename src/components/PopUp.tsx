@@ -5,7 +5,6 @@ import { type ChartConfig } from "@/components/ui/chart"
 import {
   Commit,
   getFilteredData,
-  getTabTotal,
   extractProjectNameFromUrl,
 } from "@/lib/helpers"
 // import { fetchGitLabCommits } from "@/pages/api/gitlab"
@@ -22,10 +21,6 @@ const Popup = () => {
   const [error, setError] = useState<string | null>(null)
   const [activeView, setActiveView] = useState<"chart" | "contributors">("chart")
 
-  const getCurrentTabTotal = () => {
-    return totalCommits ? getTabTotal(commits, totalCommits, activeTab) : "Loading...";
-  };
-
   const fetchCommitData = useCallback(async () => {
     if (!projectName) {
       setError("No GitLab project detected");
@@ -38,17 +33,17 @@ const Popup = () => {
       const response = await fetch(
         `https://extension-backend-production-1c13.up.railway.app/commits?projectName=${encodeURIComponent(projectName)}`
       );
-      
+
       if (!response.ok) {
         throw new Error(`Server responded with status: ${response.status}`);
       }
 
       const data = await response.json();
       console.log("API response:", data);
-      
+
       setTotalCommits(data.total_commits);
       setAuthorStats(data.author_commit_count || {});
-      
+
       setError(null);
     } catch (error) {
       console.error("Error fetching commit data:", error);
@@ -61,19 +56,19 @@ const Popup = () => {
   useEffect(() => {
     if (Object.keys(authorStats).length > 0) {
       const filteredData = getFilteredData(commits, activeTab, authorStats);
-      
+
       filteredData.sort((a, b) => b.value - a.value);
-      
+
       const colors = ["#2563eb", "#60a5fa", "#93c5fd", "#3b82f6", "#1d4ed8", "#1e40af", "#818cf8", "#4f46e5"];
       const config: ChartConfig = {};
-      
+
       filteredData.forEach((item, index) => {
         config[item.name] = {
           label: item.name,
           color: colors[index % colors.length],
         };
       });
-      
+
       setPieChartData(filteredData);
       setPieChartConfig(config);
     }
@@ -260,12 +255,12 @@ const Popup = () => {
             marginBottom: "10px"
           }}>
             <div>
-              <div style={{fontSize: "11px", color: "#1e40af"}}>Total Commits</div>
-              <div style={{fontWeight: "bold", fontSize: "16px"}}>{getCurrentTabTotal()}</div>
+              <div style={{ fontSize: "11px", color: "#1e40af" }}>Total Commits</div>
+              <div style={{ fontWeight: "bold", fontSize: "16px" }}>{totalCommits ?? "Loading..."}</div>
             </div>
             <div>
-              <div style={{fontSize: "11px", color: "#1e40af"}}>Contributors</div>
-              <div style={{fontWeight: "bold", fontSize: "16px"}}>{pieChartData.length}</div>
+              <div style={{ fontSize: "11px", color: "#1e40af" }}>Contributors</div>
+              <div style={{ fontWeight: "bold", fontSize: "16px" }}>{pieChartData.length}</div>
             </div>
           </div>
 
