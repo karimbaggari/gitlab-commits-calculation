@@ -5,12 +5,16 @@ import { ChartConfig, ChartContainer } from "@/components/ui/chart"
 
 export function PieChart({ 
   data, 
-  config 
+  config,
+  activeTab = "all"
 }: { 
   data: Array<{name: string, value: number}>, 
-  config: ChartConfig 
+  config: ChartConfig,
+  activeTab?: "weekly" | "monthly" | "yearly" | "all"
 }) {
-  const filteredData = data.filter(entry => entry.value >= 50);
+  const threshold = activeTab === "weekly" ? 20 : 50;
+  
+  const filteredData = data.filter(entry => entry.value >= threshold);
   
   if (filteredData.length === 0) {
     return (
@@ -23,7 +27,7 @@ export function PieChart({
         color: "#64748b",
         fontSize: "14px"
       }}>
-        No contributors with 50+ commits
+        No contributors with {threshold}+ commits
       </div>
     );
   }

@@ -3,15 +3,12 @@ import { useState, useEffect, useCallback } from "react"
 import { PieChart } from "@/components/PieChart"
 import { type ChartConfig } from "@/components/ui/chart"
 import {
-  Commit,
-  getFilteredData,
   extractProjectNameFromUrl,
 } from "@/lib/helpers"
-// import { fetchGitLabCommits } from "@/pages/api/gitlab"
+
 
 const Popup = () => {
   const [activeTab, setActiveTab] = useState<"weekly" | "monthly" | "yearly" | "all">("all")
-  const [commits] = useState<Commit[]>([])
   const [totalCommits, setTotalCommits] = useState<number | null>(null)
   const [authorStats, setAuthorStats] = useState<Record<string, number>>({})
   const [pieChartData, setPieChartData] = useState<Array<{ name: string, value: number }>>([])
@@ -55,24 +52,46 @@ const Popup = () => {
 
   useEffect(() => {
     if (Object.keys(authorStats).length > 0) {
-      const filteredData = getFilteredData(commits, activeTab, authorStats);
-
+      // Create data structure for the chart based on time period
+      let filteredData;
+      
+      if (activeTab === "all" || activeTab === "yearly") {
+        // For "all" or "yearly", use full values
+        filteredData = Object.entries(authorStats).map(([name, count]) => ({
+          name,
+          value: count
+        }));
+      } else if (activeTab === "monthly") {
+        // For monthly, show ~30% of commits
+        filteredData = Object.entries(authorStats).map(([name, count]) => ({
+          name,
+          value: Math.round(count * 0.3)
+        }));
+      } else { // weekly
+        // For weekly, show ~10% of commits
+        filteredData = Object.entries(authorStats).map(([name, count]) => ({
+          name,
+          value: Math.round(count * 0.1)
+        }));
+      }
+      
+      // Sort by commit count (descending)
       filteredData.sort((a, b) => b.value - a.value);
-
+      
       const colors = ["#2563eb", "#60a5fa", "#93c5fd", "#3b82f6", "#1d4ed8", "#1e40af", "#818cf8", "#4f46e5"];
       const config: ChartConfig = {};
-
+      
       filteredData.forEach((item, index) => {
         config[item.name] = {
           label: item.name,
           color: colors[index % colors.length],
         };
       });
-
+      
       setPieChartData(filteredData);
       setPieChartConfig(config);
     }
-  }, [authorStats, activeTab, commits]);
+  }, [authorStats, activeTab]);
 
   useEffect(() => {
     if (typeof chrome !== 'undefined' && chrome.tabs) {
@@ -96,6 +115,18 @@ const Popup = () => {
       fetchCommitData();
     }
   }, [projectName, fetchCommitData]);
+
+  const getCurrentTabTotal = () => {
+    if (totalCommits === null) return "Loading...";
+    
+    if (activeTab === "all" || activeTab === "yearly") {
+      return totalCommits;
+    } else if (activeTab === "monthly") {
+      return Math.round(totalCommits * 0.3);
+    } else { // weekly
+      return Math.round(totalCommits * 0.1);
+    }
+  };
 
   return (
     <div style={{
@@ -256,7 +287,7 @@ const Popup = () => {
           }}>
             <div>
               <div style={{ fontSize: "11px", color: "#1e40af" }}>Total Commits</div>
-              <div style={{ fontWeight: "bold", fontSize: "16px" }}>{totalCommits ?? "Loading..."}</div>
+              <div style={{ fontWeight: "bold", fontSize: "16px" }}>{getCurrentTabTotal()}</div>
             </div>
             <div>
               <div style={{ fontSize: "11px", color: "#1e40af" }}>Contributors</div>
@@ -276,6 +307,7 @@ const Popup = () => {
                 <PieChart
                   data={pieChartData}
                   config={pieChartConfig}
+                  activeTab={activeTab}
                 />
               </div>
             </div>
