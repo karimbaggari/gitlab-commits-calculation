@@ -130,7 +130,7 @@ const Popup = () => {
 
   return (
     <div style={{
-      width: "320px",
+      width: "100%",
       maxHeight: "500px",
       padding: "10px",
       fontFamily: "Arial",
@@ -146,7 +146,6 @@ const Popup = () => {
         marginBottom: "8px",
         borderBottom: "2px solid #3b82f6",
         paddingBottom: "6px",
-        position: "sticky",
         top: 0,
         backgroundColor: "#f8fafc",
         zIndex: 10
@@ -334,7 +333,7 @@ const Popup = () => {
                     <div style={{
                       display: "flex",
                       alignItems: "center",
-                      width: "75%"
+                      width: "65%"
                     }}>
                       {index < 3 && (
                         <div style={{
@@ -376,7 +375,9 @@ const Popup = () => {
                     <div style={{
                       fontWeight: index < 3 ? "bold" : "500",
                       color: index === 0 ? "#1e40af" : "#334155",
-                      fontSize: "11px"
+                      fontSize: "11px",
+                      width: "35%",
+                      textAlign: "right"
                     }}>
                       {item.value}
                     </div>
